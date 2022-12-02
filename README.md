@@ -1,1 +1,1 @@
-This Repo is all about machine learning projects 
+This Repo contains machine learning projects 
