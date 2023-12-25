@@ -1,0 +1,234 @@
+---
+title: "Project 2"
+author: "Vatsal Dalal"
+date: "2023-11-15"
+output: html_document
+---
+
+```{r}
+library(dplyr)
+library(nycflights13)
+library(ggplot2)
+library(tidyverse)
+```
+
+```{r}
+df <- flights %>% 
+  filter(carrier == 'UA')
+glimpse(df)
+```
+
+```{r}
+df1 <- df %>%
+  mutate(net_gain= dep_delay - arr_delay,
+         late = dep_delay > 0,
+         very_late = dep_delay>30)
+df1
+```
+# Question 1: Does the average gain differ for flights that departed late versus those that did not?
+
+```{r}
+hist(df1$net_gain)
+```
+
+
+
+```{r}
+# Visualizations
+# Boxplot for flights that departed late versus those that did not
+df1 <- df1%>%
+  filter(!is.na(df1$net_gain))
+ggplot(df1, aes(x = late, y = net_gain, fill = late)) +
+  geom_boxplot() +
+  labs(title = "Net Gain for Flights that Departed Late vs. On Time",
+       x = "Departure Status",
+       y = "Net Gain")
+```
+
+```{r}
+ggplot(df1, aes(x = very_late, y = net_gain, fill = very_late)) +
+  geom_boxplot() +
+  labs(title = "Net Gain for Flights that Departed More than 30 Minutes Late vs. Not Very Late",
+       x = "Departure Status (30+ minutes)",
+       y = "Net Gain")
+```
+
+```{r}
+# Hypothesis Testing
+# for netgain Departed Late vs. Not Departed Late
+# Calculate the observed difference in means
+observed <- mean(df1$net_gain[df1$late == 1], na.rm = TRUE) -
+             mean(df1$net_gain[df1$late == 0], na.rm = TRUE)
+
+# Number of permutations
+N <- 10^4 - 1
+
+# Initialize a vector to store permutation results
+result <- numeric(N)
+
+# Total sample size
+sample.size <- nrow(df1)
+
+# Size of group 1 (late departures)
+group.1.size <- sum(df1$late == 1)
+
+# Permutation loop
+for (i in 1:N) {
+  # Randomly shuffle the indices to create a permuted dataset
+  index <- sample(sample.size, size = group.1.size, replace = FALSE)
+  
+  # Calculate the difference in means for the permuted dataset
+  result[i] <- mean(df1$net_gain[index], na.rm = TRUE) -
+               mean(df1$net_gain[-index], na.rm = TRUE)
+}
+
+# Calculate the p-value
+p <- 2 * (sum(result <= observed) + 1) / (N + 1)
+
+# Display the p-value
+p
+
+```
+
+```{r}
+# for avg netgain Departed very Late vs. Not Departed Late
+# Calculate the observed difference in means for dep_delay > 30 vs. dep_delay <= 30
+observed <- mean(df1$net_gain[df1$dep_delay > 30], na.rm = TRUE) -
+             mean(df1$net_gain[df1$dep_delay <= 30], na.rm = TRUE)
+
+# Number of permutations
+N <- 10^4 - 1
+
+# Initialize a vector to store permutation results
+result <- numeric(N)
+
+# Total sample size
+sample.size <- nrow(df1)
+
+# Size of group 1 (dep_delay > 30)
+group.1.size <- sum(df1$dep_delay > 30)
+
+# Permutation loop
+for (i in 1:N) {
+  # Randomly shuffle the indices to create a permuted dataset
+  index <- sample(sample.size, size = group.1.size, replace = FALSE)
+  
+  # Calculate the difference in means for the permuted dataset
+  result[i] <- mean(df1$net_gain[index], na.rm = TRUE) -
+               mean(df1$net_gain[-index], na.rm = TRUE)
+}
+
+# Calculate the p-value
+p_dep_delay_gt_30_vs_not <- 2 * (sum(result <= observed) + 1) / (N + 1)
+
+# Display the p-value
+p_dep_delay_gt_30_vs_not
+
+```
+
+
+
+
+
+```{r}
+# Question 2: What are the five most common destination airports for United Airlines flights from New York City?
+# Descriptive Statistics
+top_dest_airports <- df1 %>%
+  group_by(dest) %>%
+  summarize(count = n(), mean_gain = mean(df1$net_gain,na.rm = TRUE)) %>%
+  arrange(desc(count)) %>%
+  head(5)
+
+top_dest_airports
+```
+
+
+```{r}
+# Extract the names of the top 5 airports
+top_airports <- top_dest_airports$dest
+
+# Filter data for the top 5 airports
+top_airports_data <- df1 %>%
+  filter(dest %in% top_airports)
+# Visualize the distribution of net gain for each top airport using histograms
+ggplot(top_airports_data, aes(x = net_gain, fill = dest)) +
+  geom_histogram(binwidth = 10, position = "identity", alpha = 0.7) +
+  labs(title = "Distribution of Net Gain for Top 5 Destination Airports",
+       x = "Net Gain",
+       y = "Frequency",
+       fill = "Destination Airport") +
+  facet_wrap(~dest, scales = "free_y") +
+  theme_minimal()
+
+# Summary statistics for net gain for each top airport
+summary_stats <- top_airports_data %>%
+  group_by(dest) %>%
+  summarize(count = n(),
+            mean_gain = mean(net_gain, na.rm = TRUE),
+            median_gain = median(net_gain, na.rm = TRUE),
+            sd_gain = sd(net_gain, na.rm = TRUE))
+
+# Display summary statistics
+print(summary_stats)
+
+```
+```{r}
+Den <- top_airports_data %>%
+  filter(dest=="DEN")
+t.test(Den$net_gain)$conf
+
+IAH <- top_airports_data %>%
+  filter(dest=="IAH")
+t.test(Den$net_gain)$conf 
+
+LAX <- top_airports_data %>%
+  filter(dest=="LAX")
+t.test(LAX$net_gain)$conf
+
+
+ORD <- top_airports_data %>%
+  filter(dest=="ORD")
+t.test(ORD$net_gain)$conf
+
+SFO <- top_airports_data %>%
+  filter(dest=="SFO")
+t.test(SFO$net_gain)$conf
+```
+
+## Answer 3:
+```{r}
+# Create gain per hour variable
+df2 <- mutate(df1, gain_per_hour = net_gain/hour)
+df2
+summary(df2$gain_per_hour)
+hist(df2$gain_per_hour)
+```
+```{r}
+# Assuming 'data' is your dataset with 'gain_per_hour', 'dep_delay', and 'arr_delay' variables
+
+# Boxplot to visualize the distribution of gain per hour for late vs. not late departures
+boxplot(df2$gain_per_hour ~ (data$dep_delay > 0), main="Gain per Hour for Late vs. Not Late Departures", xlab="Departure Status", ylab="Gain per Hour")
+
+# Boxplot to visualize the distribution of gain per hour for flights departing more than 30 minutes late vs. not late
+boxplot(df2$gain_per_hour ~ (data$dep_delay > 30), main="Gain per Hour for Flights Departing > 30 mins Late vs. Not Late", xlab="Departure Status", ylab="Gain per Hour")
+
+# Scatterplot to explore the relationship between gain per hour and departure delay
+plot(df2$dep_delay, data$gain_per_hour, main="Scatterplot of Gain per Hour vs. Departure Delay", xlab="Departure Delay (minutes)", ylab="Gain per Hour")
+
+# Histogram of gain per hour for late departures
+hist(df2$gain_per_hour[data$dep_delay > 0], main="Histogram of Gain per Hour for Late Departures", xlab="Gain per Hour")
+
+# Histogram of gain per hour for flights departing more than 30 minutes late
+hist(df2$gain_per_hour[data$dep_delay > 30], main="Histogram of Gain per Hour for Flights Departing > 30 mins Late", xlab="Gain per Hour")
+
+```
+```{r}
+# Hypothesis Testing - t-test for late vs. not late departures
+t_test_dep_late_hour <- t.test(gain_per_hour ~ (dep_delay > 0), data = df2)$conf
+t_test_dep_late_hour
+# Hypothesis Testing - t-test for flights departing > 30 mins late vs. not late
+t_test_dep_late_30_hour <- t.test(gain_per_hour ~ (dep_delay > 30), data = df2)$conf
+t_test_dep_late_30_hour
+```
+
+

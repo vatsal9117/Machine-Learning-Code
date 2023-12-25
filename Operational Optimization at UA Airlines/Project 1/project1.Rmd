@@ -1,0 +1,482 @@
+---
+title: "Project 1"
+author: "Vatsal Dalal"
+date: "2023-10-27"
+output: html_document
+---
+
+```{r}
+library(tidyverse)
+library(dplyr)
+library(nycflights13)
+library(ggplot2)
+library(resampledata3)
+library(skimr)
+```
+
+## Step 1. Create data Frame for the Analysis:
+```{r}
+data("weather")
+df <-merge(NycFlights, weather, by.NycFlights = c("origin", "time_hour"), by.weather = c("origin", "time_hour"), all.x = FALSE, all.y = FALSE, sort = TRUE)
+Ua_df <- df %>%   filter(carrier=="UA")
+# Remove rows with NA values
+#Ua_df <- na.omit(Ua_df)
+Ua_df
+```
+## Step 2 EDA
+
+```{r}
+ua_data <- Ua_df
+# Filter the data fo
+skim(ua_data)
+```
+
+
+```{r}
+# EDA: Time of Day Analysis
+library(dplyr)
+
+# Categorize Time of Day
+ua_data <- ua_data %>%
+  mutate(time_of_day_category = case_when(
+    hour(time_hour) >= 5 & hour(time_hour) < 12 ~ "Morning",
+    hour(time_hour) >= 12 & hour(time_hour) < 17 ~ "Afternoon",
+    hour(time_hour) >= 17 & hour(time_hour) < 21 ~ "Evening",
+    TRUE ~ "Night"
+  ))
+
+# Categorize Time of Year (Season)
+ua_data<- ua_data %>%
+  mutate(
+    month = as.numeric(month), # Convert the "month" variable to numeric if it's not already
+    season = case_when(
+      between(month, 1, 3) ~ "Winter",
+      between(month, 4, 6) ~ "Spring",
+      between(month, 7, 9) ~ "Summer",
+      between(month, 10, 12) ~ "Fall"
+    )
+  )
+
+# Categorize Temperature
+ua_data <- ua_data %>%
+  mutate(temperature_category = case_when(
+    temp > 0 & temp <= 20 ~ "cold",
+    temp > 20 ~ "Hot"
+  ))
+
+# Remove rows with null values in wind_speed column
+ua_data <- ua_data %>%
+  filter(!is.na(wind_speed)) %>%
+  mutate(wind_speed_category = case_when(
+    wind_speed <= 15 ~ "Calm",
+    wind_speed > 15 ~ "Strong"
+  ))
+
+
+
+# Categorize Precipitation
+ua_data <- ua_data %>%
+  mutate(precipitation_category = case_when(
+    precip == 0 ~ "No Precipitation",
+    TRUE ~ "Precipitation"  # Everything else is categorized as "Precipitation"
+  ))
+
+
+# Categorize Visibility
+ua_data <- ua_data %>%
+  mutate(visibility_category = case_when(
+    visib > 2 ~ "Good Visibility",  # Visibility greater than 2 is considered good
+    TRUE ~ "Poor Visibility"  # Everything else is categorized as "Poor Visibility"
+  ))
+
+
+ua_data
+```
+
+
+```{r}
+# Create a summary of time of day categories and departure delays
+time_of_day_summary <- ua_data %>%
+  group_by(time_of_day_category) %>%
+  summarise(
+    Total_Flights = n(),
+    Mean_Dep_Delay = mean(dep_delay, na.rm = TRUE)
+  )
+time_of_day_summary
+# Create a bar plot
+ggplot(time_of_day_summary, aes(x = time_of_day_category, y = Mean_Dep_Delay)) +
+  geom_bar(stat = "identity", fill = "skyblue") +
+  labs(
+    title = "Mean Departure Delay by Time of Day",
+    x = "Time of Day Category",
+    y = "Mean Departure Delay (minutes)"
+  ) +
+  theme_minimal()
+
+
+
+
+
+```
+
+
+
+```{r}
+
+# Group by month and calculate the mean departure delay
+monthly_delay_summary <- ua_data %>%
+  group_by(month) %>%
+  summarize(mean_delay = mean(dep_delay, na.rm = TRUE))
+
+# Create a bar plot to visualize the mean departure delay by month
+ggplot(monthly_delay_summary, aes(x = factor(month), y = mean_delay)) +
+  geom_bar(stat = "identity", fill = "black") +
+  xlab("Month") +
+  ylab("Mean Departure Delay (minutes)") +
+  ggtitle("Mean Departure Delay by Month")
+
+```
+
+```{r}
+# Create a line plot for Season categories vs. Mean Departure Delay
+ua_data %>%
+  group_by(season) %>%
+  summarize(mean_dep_delay = mean(dep_delay, na.rm = TRUE)) %>%
+  ggplot(aes(x = season, y = mean_dep_delay, group = 1)) +
+  geom_line() +
+  labs(title = "Mean Departure Delay by Season", x = "Season", y = "Mean Departure Delay")
+
+```
+
+
+
+```{r}
+# Calculate the mean departure delay for each temperature
+# Create a scatter plot for Temperature categories vs. Mean Departure Delay
+ua_data %>%
+  group_by(temperature_category) %>%
+  reframe(mean_dep_delay = mean(dep_delay, na.rm = TRUE), .groups = "drop") %>%
+  ggplot(aes(x = temperature_category, y = mean_dep_delay)) +
+  geom_point() +
+  labs(title = "Mean Departure Delay by Temperature Category", x = "Temperature Category", y = "Mean Departure Delay")
+```
+
+```{r}
+# Calculate the mean departure delay for each wind speed
+# Create a bar plot for Wind Speed categories vs. Mean Departure Delay
+ua_data %>%
+  group_by(wind_speed_category) %>%
+  summarize(mean_dep_delay = mean(dep_delay, na.rm = TRUE)) %>%
+  ggplot(aes(x = wind_speed_category, y = mean_dep_delay)) +
+  geom_bar(stat = "identity") +
+  labs(title = "Mean Departure Delay by Wind Speed Category", x = "Wind Speed Category", y = "Mean Departure Delay")
+```
+
+```{r}
+# Create a bar plot for Precipitation categories vs. Mean Departure Delay
+ua_data %>%
+  group_by(precipitation_category) %>%
+  summarize(mean_dep_delay = mean(dep_delay, na.rm = TRUE)) %>%
+  ggplot(aes(x = precipitation_category, y = mean_dep_delay)) +
+  geom_bar(stat = "identity") +
+  labs(title = "Mean Departure Delay by Precipitation Category", x = "Precipitation Category", y = "Mean Departure Delay")
+
+```
+
+```{r}
+# Create a line plot for Visibility categories vs. Mean Departure Delay
+ua_data %>%
+  group_by(visibility_category) %>%
+  summarize(mean_dep_delay = mean(dep_delay, na.rm = TRUE)) %>%
+  ggplot(aes(x = visibility_category, y = mean_dep_delay)) +
+  geom_bar(stat = "identity") +
+  labs(title = "Mean Departure Delay by Visibility Category", x = "Visibility Category", y = "Mean Departure Delay")
+```
+
+## Permutation Testing for Time of delay analysis
+
+
+## Permutation Testing in between morning and evening:
+```{r}
+N<- 10^4-1 
+observed <- mean(ua_data$dep_delay[ua_data$time_of_day_category == 'Evening'], na.rm = TRUE)-mean(ua_data$dep_delay[ua_data$time_of_day_category == 'Morning'], na.rm = TRUE)
+result <- numeric(N) 
+for (i in 1:N) 
+{   
+  index <- sample(nrow(ua_data),
+  size=nrow(ua_data %>% filter(time_of_day_category == 'Morning')), replace = FALSE)   
+  result[i] <- mean(ua_data$dep_delay[index], na.rm = TRUE) - mean(ua_data$dep_delay[-index], na.rm = TRUE) 
+}
+ggplot(data = tibble(result), mapping = aes(x = result)) +  
+geom_histogram() +   
+geom_vline(xintercept = observed, color = "red")
+2 * ((sum(result >= observed) + 1) / (N + 1))
+```
+
+## Permutation Testing in between morning and Afternoon
+```{r}
+N<- 10^4-1 
+observed <- mean(ua_data$dep_delay[ua_data$time_of_day_category == 'Afternoon'], na.rm = TRUE)-mean(ua_data$dep_delay[ua_data$time_of_day_category == 'Morning'], na.rm = TRUE)
+result <- numeric(N) 
+for (i in 1:N) 
+{   
+  index <- sample(nrow(ua_data),
+  size=nrow(ua_data %>% filter(time_of_day_category == 'Morning')), replace = FALSE)   
+  result[i] <- mean(ua_data$dep_delay[index], na.rm = TRUE) - mean(ua_data$dep_delay[-index], na.rm = TRUE) 
+}
+ggplot(data = tibble(result), mapping = aes(x = result)) +  
+geom_histogram() +   
+geom_vline(xintercept = observed, color = "red")
+2 * ((sum(result >= observed) + 1) / (N + 1))
+```
+
+
+## Permutation Testing in between Morning and Night
+```{r}
+N<- 10^4-1 
+observed <- mean(ua_data$dep_delay[ua_data$time_of_day_category == 'Night'], na.rm = TRUE)-mean(ua_data$dep_delay[ua_data$time_of_day_category == 'Morning'], na.rm = TRUE)
+result <- numeric(N) 
+for (i in 1:N) 
+{   
+  index <- sample(nrow(ua_data),
+  size=nrow(ua_data %>% filter(time_of_day_category == 'Morning')), replace = FALSE)   
+  result[i] <- mean(ua_data$dep_delay[index], na.rm = TRUE) - mean(ua_data$dep_delay[-index], na.rm = TRUE) 
+}
+ggplot(data = tibble(result), mapping = aes(x = result)) +  
+geom_histogram() +   
+geom_vline(xintercept = observed, color = "red")
+2 * ((sum(result >= observed) + 1) / (N + 1))
+```
+## Permutation Testing in between Afternoon and Evening
+```{r}
+N<- 10^4-1 
+observed <- mean(ua_data$dep_delay[ua_data$time_of_day_category == 'Evening'], na.rm = TRUE)-mean(ua_data$dep_delay[ua_data$time_of_day_category == 'Afternoon'], na.rm = TRUE)
+result <- numeric(N) 
+for (i in 1:N) 
+{   
+  index <- sample(nrow(ua_data),
+  size=nrow(ua_data %>% filter(time_of_day_category == 'Afternoon')), replace = FALSE)   
+  result[i] <- mean(ua_data$dep_delay[index], na.rm = TRUE) - mean(ua_data$dep_delay[-index], na.rm = TRUE) 
+}
+ggplot(data = tibble(result), mapping = aes(x = result)) +  
+geom_histogram() +   
+geom_vline(xintercept = observed, color = "red")
+2 * ((sum(result >= observed) + 1) / (N + 1))
+```
+
+## Permutation Testing in between Afternoon and Night
+```{r}
+N<- 10^4-1 
+observed <- mean(ua_data$dep_delay[ua_data$time_of_day_category == 'Night'], na.rm = TRUE)-mean(ua_data$dep_delay[ua_data$time_of_day_category == 'Afternoon'], na.rm = TRUE)
+result <- numeric(N) 
+for (i in 1:N) 
+{   
+  index <- sample(nrow(ua_data),
+  size=nrow(ua_data %>% filter(time_of_day_category == 'Afternoon')), replace = FALSE)   
+  result[i] <- mean(ua_data$dep_delay[index], na.rm = TRUE) - mean(ua_data$dep_delay[-index], na.rm = TRUE) 
+}
+ggplot(data = tibble(result), mapping = aes(x = result)) +  
+geom_histogram() +   
+geom_vline(xintercept = observed, color = "red")
+2 * ((sum(result >= observed) + 1) / (N + 1))
+```
+
+
+## Permutation Testing in between Afternoon and Night
+```{r}
+N<- 10^4-1 
+observed <- mean(ua_data$dep_delay[ua_data$time_of_day_category == 'Night'], na.rm = TRUE)- mean(ua_data$dep_delay[ua_data$time_of_day_category == 'Afternoon'], na.rm = TRUE)
+result <- numeric(N) 
+for (i in 1:N) 
+{   
+  index <- sample(nrow(ua_data),
+  size=nrow(ua_data %>% filter(time_of_day_category == 'Afternoon')), replace = FALSE)   
+  result[i] <- mean(ua_data$dep_delay[index], na.rm = TRUE) - mean(ua_data$dep_delay[-index], na.rm = TRUE) 
+}
+ggplot(data = tibble(result), mapping = aes(x = result)) +  
+geom_histogram() +   
+geom_vline(xintercept = observed, color = "red")
+2 * ((sum(result >= observed) + 1) / (N + 1))
+```
+
+
+
+
+## Permutation Testing for Time of year analysis
+
+## Permutation Testing in between winter and spring
+```{r}
+N<- 10^4-1 
+observed1 <- mean(ua_data$dep_delay[ua_data$season == 'Spring'], na.rm = TRUE)-mean(ua_data$dep_delay[ua_data$season == 'Winter'], na.rm = TRUE)
+result1 <- numeric(N) 
+for (i in 1:N) 
+{   
+  index <- sample(nrow(ua_data),
+  size=nrow(ua_data %>% filter(season == 'Winter')), replace = FALSE)   
+  result1[i] <- mean(ua_data$dep_delay[index], na.rm = TRUE) - mean(ua_data$dep_delay[-index], na.rm = TRUE) 
+}
+ggplot(data = tibble(result1), mapping = aes(x = result1)) +  
+geom_histogram() +   
+geom_vline(xintercept = observed1, color = "red")
+2 * ((sum(result1 >= observed1) + 1) / (N + 1))
+```
+
+## Permutation Testing in between Winter and summer
+```{r}
+N<- 10^4-1 
+observed2 <- mean(ua_data$dep_delay[ua_data$season == 'Winter'], na.rm = TRUE) - mean(ua_data$dep_delay[ua_data$season == 'Summer'], na.rm = TRUE)
+result2 <- numeric(N) 
+for (i in 1:N) 
+{   
+  index <- sample(nrow(ua_data),
+  size=nrow(ua_data %>% filter(season == 'Winter')), replace = FALSE)   
+  result2[i] <- mean(ua_data$dep_delay[index], na.rm = TRUE) - mean(ua_data$dep_delay[-index], na.rm = TRUE) 
+}
+ggplot(data = tibble(result2), mapping = aes(x = result2)) +  
+geom_histogram() +   
+geom_vline(xintercept = observed2, color = "red")
+2 * ((sum(result2 <= observed2) + 1) / (N + 1))
+```
+## Permutation Testing in between Winter and Fall
+```{r}
+N<- 10^4-1 
+observed3 <- mean(ua_data$dep_delay[ua_data$season == 'Winter'], na.rm = TRUE)-mean(ua_data$dep_delay[ua_data$season == 'Fall'], na.rm = TRUE)
+result3 <- numeric(N) 
+for (i in 1:N) 
+{   
+  index1 <- sample(nrow(ua_data),
+  size =nrow(ua_data %>% filter(season == 'Winter')), replace = FALSE)   
+  result3[i] <- mean(ua_data$dep_delay[index1], na.rm = TRUE) - mean(ua_data$dep_delay[-index1], na.rm = TRUE) 
+}
+ggplot(data = tibble(result3), mapping = aes(x = result3)) +  
+geom_histogram() +   
+geom_vline(xintercept = observed3, color = "red")
+2 * ((sum(result3 <= observed3) + 1) / (N + 1))
+```
+
+
+## Permutation Testing in between Spring and summer 
+```{r}
+N<- 10^4-1 
+observed4 <- mean(ua_data$dep_delay[ua_data$season == 'Spring'], na.rm = TRUE)-mean(ua_data$dep_delay[ua_data$season == 'Summer'], na.rm = TRUE)
+result4 <- numeric(N) 
+for (i in 1:N) 
+{   
+  index2 <- sample(nrow(ua_data),
+  size =nrow(ua_data %>% filter(season == 'Spring')), replace = FALSE)   
+  result4[i] <- mean(ua_data$dep_delay[index2], na.rm = TRUE) - mean(ua_data$dep_delay[-index2], na.rm = TRUE) 
+}
+ggplot(data = tibble(result4), mapping = aes(x = result3)) +  
+geom_histogram() +   
+geom_vline(xintercept = observed4, color = "red")
+2 * ((sum(result4 >= observed4) + 1) / (N + 1))
+```
+
+## Permutation Testing in between Spring and Fall
+```{r}
+N<- 10^4-1 
+observed5 <- mean(ua_data$dep_delay[ua_data$season == 'Spring'], na.rm = TRUE)-mean(ua_data$dep_delay[ua_data$season == 'Fall'], na.rm = TRUE)
+result5 <- numeric(N) 
+for (i in 1:N) 
+{   
+  index3 <- sample(nrow(ua_data),
+  size =nrow(ua_data %>% filter(season == 'Spring')), replace = FALSE)   
+  result5[i] <- mean(ua_data$dep_delay[index1], na.rm = TRUE) - mean(ua_data$dep_delay[-index1], na.rm = TRUE) 
+}
+ggplot(data = tibble(result5), mapping = aes(x = result5)) +  
+geom_histogram() +   
+geom_vline(xintercept = observed5, color = "red")
+2 * ((sum(result5 >= observed5) + 1) / (N + 1))
+```
+
+
+## Permutation Testing in between summer and Fall
+```{r}
+N<- 10^4-1 
+observed6 <- mean(ua_data$dep_delay[ua_data$season == 'Summer'], na.rm = TRUE)-mean(ua_data$dep_delay[ua_data$season == 'Fall'], na.rm = TRUE)
+result6 <- numeric(N) 
+for (i in 1:N) 
+{   
+  index4 <- sample(nrow(ua_data),
+  size =nrow(ua_data %>% filter(season == 'Summer')), replace = FALSE)   
+  result6[i] <- mean(ua_data$dep_delay[index4], na.rm = TRUE) - mean(ua_data$dep_delay[-index4], na.rm = TRUE) 
+}
+ggplot(data = tibble(result6), mapping = aes(x = result6)) +  
+geom_histogram() +   
+geom_vline(xintercept = observed6, color = "red")
+2 * ((sum(result6 >= observed6) + 1) / (N + 1))
+```
+
+## Permutation testing on temprature Hot and warm:
+```{r}
+ua_data <- ua_data %>%
+  filter(!is.na(temperature_category))
+N<- 10^4-1 
+observed7 <- mean(ua_data$dep_delay[ua_data$temperature_category == 'Hot'], na.rm = TRUE) -  mean(ua_data$dep_delay[ua_data$temperature_category == 'Cold'], na.rm = TRUE)
+observed7
+result7 <- numeric(N) 
+for (i in 1:N) 
+{   
+  index5 <- sample(nrow(ua_data),
+  size =nrow(ua_data %>% filter(temperature_category == 'Cold')), replace = FALSE)   
+  result7[i] <- mean(ua_data$dep_delay[index5], na.rm = TRUE) - mean(ua_data$dep_delay[-index5], na.rm = TRUE) 
+}
+ggplot(data = tibble(result7), mapping = aes(x = result7)) +  
+geom_histogram() +   
+geom_vline(xintercept = observed7, color = "red")
+2*((sum(result7 >= observed7) + 1) / (N + 1))
+```
+
+
+
+## Permutation test for wind_speed
+```{r}
+N<- 10^4-1 
+observed8 <- mean(ua_data$dep_delay[ua_data$wind_speed_category == 'Calm'], na.rm = TRUE)-mean(ua_data$dep_delay[ua_data$wind_speed_category == 'Strong'], na.rm = TRUE)
+result8 <- numeric(N) 
+for (i in 1:N) 
+{   
+  index6 <- sample(nrow(ua_data),
+  size =nrow(ua_data %>% filter(wind_speed_category == 'Calm')), replace = FALSE)   
+  result8[i] <- mean(ua_data$dep_delay[index6], na.rm = TRUE) - mean(ua_data$dep_delay[-index6], na.rm = TRUE) 
+}
+ggplot(data = tibble(result8), mapping = aes(x = result8)) +  
+geom_histogram() +   
+geom_vline(xintercept = observed8, color = "red")
+2*((sum(result8 <= observed8) + 1) / (N + 1))
+```
+
+## Permutation test for percip
+```{r}
+N<- 10^4-1 
+observed9 <- mean(ua_data$dep_delay[ua_data$precipitation_category == 'No Precipitation'], na.rm = TRUE)-mean(ua_data$dep_delay[ua_data$precipitation_category == 'Precipitation'], na.rm = TRUE)
+result9 <- numeric(N) 
+for (i in 1:N) 
+{   
+  index7 <- sample(nrow(ua_data),
+  size =nrow(ua_data %>% filter(precipitation_category == 'Precipitation')), replace = FALSE)   
+  result7[i] <- mean(ua_data$dep_delay[index7], na.rm = TRUE) - mean(ua_data$dep_delay[-index7], na.rm = TRUE) 
+}
+ggplot(data = tibble(result9), mapping = aes(x = result9)) +  
+geom_histogram() +   
+geom_vline(xintercept = observed9, color = "red")
+2*((sum(result9 <= observed9) + 1) / (N + 1))
+```
+
+## Permutation test for visibility
+```{r}
+N<- 10^4-1 
+observed10 <- mean(ua_data$dep_delay[ua_data$visibility_category == 'Good Visibility'], na.rm = TRUE)-mean(ua_data$dep_delay[ua_data$visibility_category == 'Poor Visibility'], na.rm = TRUE)
+result10 <- numeric(N) 
+for (i in 1:N) 
+{   
+  index8 <- sample(nrow(ua_data),
+  size =nrow(ua_data %>% filter(visibility_category == 'Good Visibility')), replace = FALSE)   
+  result10[i] <- mean(ua_data$dep_delay[index8], na.rm = TRUE) - mean(ua_data$dep_delay[-index8], na.rm = TRUE) 
+}
+ggplot(data = tibble(result10), mapping = aes(x = result10)) +  
+geom_histogram() +   
+geom_vline(xintercept = observed10, color = "red")
+2*((sum(result10 <= observed10) + 1) / (N + 1))
+```
+
