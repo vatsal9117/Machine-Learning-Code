@@ -1,6 +1,6 @@
 ## Summary
 
-This report focuses on developing neural network models for bird species classification based on audio spectrograms. The key aspects covered are:
+This project focuses on developing neural network models for bird species classification based on audio spectrograms. The key aspects covered are:
 
 **Data Preprocessing**:
 - The dataset contains spectrograms of 10 audio clips for 12 bird species, along with 3 unlabeled clips for testing.
@@ -23,6 +23,6 @@ This report focuses on developing neural network models for bird species classif
 - The CNN with dropout model was used to predict species for 3 unlabeled audio clips.
 - For each clip, the top 3 predicted species with their probabilities are reported.
 
-The report highlights the effectiveness of CNNs, especially with dropout regularization, in classifying bird species from audio data. It also emphasizes the importance of appropriate model selection and regularization techniques to prevent overfitting.
+The project highlights the effectiveness of CNNs, especially with dropout regularization, in classifying bird species from audio data. It also emphasizes the importance of appropriate model selection and regularization techniques to prevent overfitting.
 
 
