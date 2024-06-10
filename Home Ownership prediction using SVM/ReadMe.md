@@ -1,6 +1,6 @@
 ## Summary
 
-This report presents an analysis of a housing dataset using various Support Vector Machine (SVM) models to predict home ownership (owner-occupied or renter-occupied). The key findings are:
+This project presents an analysis of a housing dataset using various Support Vector Machine (SVM) models to predict home ownership (owner-occupied or renter-occupied). The key findings are:
 
 1. **Feature Importance**: Permutation feature importance revealed that 'BEDROOMS', 'AGE', 'COSTWATR', 'ROOMS', and 'DENSITY' were the most significant features for predicting home ownership across all SVM models.
 
